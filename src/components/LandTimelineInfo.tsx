@@ -61,7 +61,7 @@ export function LandTimelineInfo({ era, onContinentSelect }: LandTimelineInfoPro
       </div>
 
       <p className="timeline-info__note">
-        Colored land = major continents; dark green = islands and smaller terranes; blue = ocean.
+        Green = continental land; blue base = ocean.
         Reconstructed from {LAND_ATTRIBUTION.rotations} via {LAND_ATTRIBUTION.source}.
       </p>
     </aside>
