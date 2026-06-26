@@ -4,16 +4,24 @@ Interactive 3D cross-section of Earth's interior — built with React, TypeScrip
 
 ## Live demo
 
-**https://lucasfeng.github.io/earth-structure/**
+**https://NathanFengSHHS.github.io/earth-structure/**
 
 (Available after you run the deploy script below and GitHub Actions finishes.)
 
 ## Features
 
+### Internal Structure
 - Cut-away 3D Earth model with 5 geological layers
 - Orbit, zoom, and click to explore
 - Info panel with composition, temperature, and key facts
-- Keyboard shortcuts: `1`–`5` select layers, `R` reset view
+- Keyboard shortcuts: `1`–`5` select layers
+
+### Plate Movement Timeline
+- Full 3D globe with schematic plate overlays from Pangaea to present
+- Geological time slider (250 Ma → today) with era quick-jump chips
+- Era info panel with key tectonic events
+
+Use the header button to switch between **Internal Structure** and **Plate Movement**.
 
 ## Getting Started
 
@@ -54,7 +62,7 @@ Your site will be at `https://<your-username>.github.io/earth-structure/`.
 
 ## Note
 
-Layer thickness is exaggerated for visibility. True-scale rendering would make the crust invisible at this zoom level.
+Layer thickness is exaggerated for visibility. True-scale rendering would make the crust invisible at this zoom level. Plate positions on the timeline page are simplified for illustration.
 
 ## Attribution
 

@@ -27,8 +27,11 @@ REMOTE="https://github.com/${OWNER}/${REPO_NAME}.git"
 
 if "$GH" repo view "${OWNER}/${REPO_NAME}" >/dev/null 2>&1; then
   echo "Repo ${OWNER}/${REPO_NAME} already exists."
-  git remote remove origin 2>/dev/null || true
-  git remote add origin "$REMOTE"
+  if git remote get-url origin >/dev/null 2>&1; then
+    git remote set-url origin "$REMOTE"
+  else
+    git remote add origin "$REMOTE"
+  fi
   git push -u origin main
 else
   "$GH" repo create "$REPO_NAME" --public --source=. --remote=origin --push
