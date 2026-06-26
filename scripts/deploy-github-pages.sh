@@ -5,7 +5,9 @@ REPO_NAME="${REPO_NAME:-earth-structure}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if command -v gh >/dev/null 2>&1; then
+if [[ -x /opt/homebrew/bin/gh ]]; then
+  GH=/opt/homebrew/bin/gh
+elif command -v gh >/dev/null 2>&1; then
   GH=gh
 elif [[ -x /tmp/gh_2.63.2_macOS_arm64/bin/gh ]]; then
   GH=/tmp/gh_2.63.2_macOS_arm64/bin/gh
