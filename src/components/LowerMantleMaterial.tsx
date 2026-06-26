@@ -2,8 +2,10 @@ import { useTexture } from '@react-three/drei'
 import { FrontSide, SRGBColorSpace } from 'three'
 import type { Side } from 'three'
 
+import { assetUrl } from '../utils/assetUrl'
+
 export function useLowerMantleTexture() {
-  const map = useTexture('/textures/lower-mantle-lava.png')
+  const map = useTexture(assetUrl('textures/lower-mantle-lava.png'))
   map.colorSpace = SRGBColorSpace
   return map
 }

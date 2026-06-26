@@ -2,8 +2,10 @@ import { useTexture } from '@react-three/drei'
 import { FrontSide, SRGBColorSpace } from 'three'
 import type { Side } from 'three'
 
+import { assetUrl } from '../utils/assetUrl'
+
 export function useOuterCoreTexture() {
-  const map = useTexture('/textures/outer-core-lava.png')
+  const map = useTexture(assetUrl('textures/outer-core-lava.png'))
   map.colorSpace = SRGBColorSpace
   return map
 }

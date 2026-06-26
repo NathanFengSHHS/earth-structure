@@ -2,9 +2,11 @@ import { useTexture } from '@react-three/drei'
 import { FrontSide, SRGBColorSpace } from 'three'
 import type { Side } from 'three'
 
+import { assetUrl } from '../utils/assetUrl'
+
 /** CC0 seamless soil — OpenGameArt "Dirt Ground Seamless Free" (ForKotLow) */
 export function useCrustDirtTexture() {
-  const map = useTexture('/textures/crust-dirt.jpg')
+  const map = useTexture(assetUrl('textures/crust-dirt.jpg'))
   map.colorSpace = SRGBColorSpace
   return map
 }

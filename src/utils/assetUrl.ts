@@ -1,0 +1,5 @@
+/** Public asset path that respects Vite base (GitHub Pages subpath). */
+export function assetUrl(path: string): string {
+  const normalized = path.startsWith('/') ? path.slice(1) : path
+  return `${import.meta.env.BASE_URL}${normalized}`
+}
