@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# GPlates tooling (source bundle is large; exported JSON lives in public/)
+.venv-gplates
+data/gplates-source/gplates_2.5.0_geodata.zip
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

@@ -14,21 +14,18 @@ interface SceneProps {
   onSelect: (id: LayerId) => void
   onHover: (id: LayerId | null) => void
   controlsRef: Ref<OrbitControlsImpl>
-  resetToken: number
 }
 
 function BoundsRefresher({
-  resetToken,
   selectedLayerId,
 }: {
-  resetToken: number
   selectedLayerId: LayerId | null
 }) {
   const bounds = useBounds()
 
   useEffect(() => {
     bounds.refresh().fit()
-  }, [resetToken, selectedLayerId, bounds])
+  }, [selectedLayerId, bounds])
   return null
 }
 
@@ -38,7 +35,6 @@ function SceneContent({
   onSelect,
   onHover,
   controlsRef,
-  resetToken,
 }: SceneProps) {
   return (
     <>
@@ -57,7 +53,7 @@ function SceneContent({
       <directionalLight position={[-3, 2, -2]} intensity={0.6} color="#b3d4ff" />
 
       <Bounds fit observe margin={1.15}>
-        <BoundsRefresher resetToken={resetToken} selectedLayerId={selectedLayerId} />
+        <BoundsRefresher selectedLayerId={selectedLayerId} />
         <Suspense fallback={null}>
           <Earth
             selectedLayerId={selectedLayerId}

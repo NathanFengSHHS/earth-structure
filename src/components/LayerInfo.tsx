@@ -64,7 +64,6 @@ export function LayerInfo({ selectedLayerId }: LayerInfoProps) {
             <li>Drag to rotate</li>
             <li>Scroll to zoom</li>
             <li>Press <kbd>1</kbd>–<kbd>5</kbd> to select layers</li>
-            <li>Press <kbd>R</kbd> to reset view</li>
           </ul>
         </div>
         <p className="layer-info__note">

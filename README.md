@@ -17,11 +17,22 @@ Interactive 3D cross-section of Earth's interior — built with React, TypeScrip
 - Keyboard shortcuts: `1`–`5` select layers
 
 ### Plate Movement Timeline
-- Full 3D globe with schematic plate overlays from Pangaea to present
-- Geological time slider (250 Ma → today) with era quick-jump chips
+- Full 3D globe with **GPlates**-reconstructed coastlines and major plate polygons (Zahirovic et al., 2022)
+- Geological time slider (410 Ma → today) with era quick-jump chips
 - Era info panel with key tectonic events
 
 Use the header button to switch between **Internal Structure** and **Plate Movement**.
+
+### Regenerating GPlates data (optional)
+
+The timeline uses pre-exported GeoJSON in `public/data/gplates/`. To rebuild from the official GPlates 2.5 GeoData bundle:
+
+```bash
+python3 -m venv .venv-gplates
+.venv-gplates/bin/pip install -r scripts/requirements-gplates.txt
+npm run gplates:download   # ~195 MB from Zenodo
+npm run gplates:export     # writes public/data/gplates/*.json
+```
 
 ## Getting Started
 
@@ -62,10 +73,12 @@ Your site will be at `https://<your-username>.github.io/earth-structure/`.
 
 ## Note
 
-Layer thickness is exaggerated for visibility. True-scale rendering would make the crust invisible at this zoom level. Plate positions on the timeline page are simplified for illustration.
+Layer thickness is exaggerated for visibility. True-scale rendering would make the crust invisible at this zoom level.
 
 ## Attribution
 
 Earth surface texture: [NASA Blue Marble / Blue Marble Next Generation](https://visibleearth.nasa.gov/collection/1484/blue-marble) (public domain). Bump map derived from NASA elevation data via [three-globe](https://github.com/vasturiano/three-globe) example assets.
 
 Crust dirt texture: [Dirt Ground Seamless Free](https://opengameart.org/content/dirt-ground-seamless-free) by ForKotLow (CC0).
+
+Plate timeline reconstructions: [GPlates 2.5 GeoData](https://zenodo.org/records/14194897) (EarthByte, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)). Rotation model: Zahirovic et al. (2022). See [EarthByte GPlates data page](https://www.earthbyte.org/gplates-2-5-software-and-data-sets/).

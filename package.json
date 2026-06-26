@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gplates:download": "./scripts/download-gplates-geodata.sh",
+    "gplates:export": ".venv-gplates/bin/python scripts/export-gplates-geojson.py"
   },
   "dependencies": {
     "@react-three/drei": "^9.117.3",

@@ -1,0 +1,107 @@
+{
+  "model": "Zahirovic et al. (2022)",
+  "source": "GPlates 2.5 GeoData (EarthByte, CC BY 3.0)",
+  "landModel": "Cao et al. (2017) paleogeography at era keyframes; continental polygons for motion",
+  "maxAgeMa": 410,
+  "eras": [
+    {
+      "id": "devonian",
+      "ageMa": 410,
+      "coastlines": "devonian-coastlines.json",
+      "land": "devonian-land.json",
+      "paleo": "devonian-paleo.json",
+      "continents": "devonian-continents.json",
+      "plates": "devonian-plates.json"
+    },
+    {
+      "id": "late-devonian",
+      "ageMa": 360,
+      "coastlines": "late-devonian-coastlines.json",
+      "land": "late-devonian-land.json",
+      "paleo": "late-devonian-paleo.json",
+      "continents": "late-devonian-continents.json",
+      "plates": "late-devonian-plates.json"
+    },
+    {
+      "id": "carboniferous",
+      "ageMa": 320,
+      "coastlines": "carboniferous-coastlines.json",
+      "land": "carboniferous-land.json",
+      "paleo": "carboniferous-paleo.json",
+      "continents": "carboniferous-continents.json",
+      "plates": "carboniferous-plates.json"
+    },
+    {
+      "id": "permian",
+      "ageMa": 280,
+      "coastlines": "permian-coastlines.json",
+      "land": "permian-land.json",
+      "paleo": "permian-paleo.json",
+      "continents": "permian-continents.json",
+      "plates": "permian-plates.json"
+    },
+    {
+      "id": "pangaea",
+      "ageMa": 250,
+      "coastlines": "pangaea-coastlines.json",
+      "land": "pangaea-land.json",
+      "paleo": "pangaea-paleo.json",
+      "continents": "pangaea-continents.json",
+      "plates": "pangaea-plates.json"
+    },
+    {
+      "id": "early-breakup",
+      "ageMa": 200,
+      "coastlines": "early-breakup-coastlines.json",
+      "land": "early-breakup-land.json",
+      "paleo": "early-breakup-paleo.json",
+      "continents": "early-breakup-continents.json",
+      "plates": "early-breakup-plates.json"
+    },
+    {
+      "id": "jurassic",
+      "ageMa": 170,
+      "coastlines": "jurassic-coastlines.json",
+      "land": "jurassic-land.json",
+      "paleo": "jurassic-paleo.json",
+      "continents": "jurassic-continents.json",
+      "plates": "jurassic-plates.json"
+    },
+    {
+      "id": "cretaceous",
+      "ageMa": 100,
+      "coastlines": "cretaceous-coastlines.json",
+      "land": "cretaceous-land.json",
+      "paleo": "cretaceous-paleo.json",
+      "continents": "cretaceous-continents.json",
+      "plates": "cretaceous-plates.json"
+    },
+    {
+      "id": "paleocene",
+      "ageMa": 60,
+      "coastlines": "paleocene-coastlines.json",
+      "land": "paleocene-land.json",
+      "paleo": "paleocene-paleo.json",
+      "continents": "paleocene-continents.json",
+      "plates": "paleocene-plates.json"
+    },
+    {
+      "id": "eocene",
+      "ageMa": 40,
+      "coastlines": "eocene-coastlines.json",
+      "land": "eocene-land.json",
+      "paleo": "eocene-paleo.json",
+      "continents": "eocene-continents.json",
+      "plates": "eocene-plates.json"
+    },
+    {
+      "id": "present",
+      "ageMa": 0,
+      "coastlines": "present-coastlines.json",
+      "land": "present-land.json",
+      "paleo": "present-paleo.json",
+      "continents": "present-continents.json",
+      "plates": "present-plates.json"
+    }
+  ]
+}
