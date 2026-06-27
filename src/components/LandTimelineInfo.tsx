@@ -1,6 +1,7 @@
 import type { PlateEra } from '../data/plateTimeline'
 import { formatAgeLabel, LAND_ATTRIBUTION } from '../data/plateTimeline'
 import { useGplatesEraData } from '../hooks/useGplatesEraData'
+import { HIDDEN_CONTINENT_NAMES } from '../utils/globeLandOverlays'
 
 interface LandTimelineInfoProps {
   era: PlateEra
@@ -10,11 +11,13 @@ interface LandTimelineInfoProps {
 export function LandTimelineInfo({ era, onContinentSelect }: LandTimelineInfoProps) {
   const { data, loading } = useGplatesEraData(era.id)
 
-  const continentChips = data?.continents.features.map((feature, index) => ({
-    id: String(feature.properties.name ?? `continent-${index}`),
-    name: String(feature.properties.name ?? `Continent ${index + 1}`),
-    color: String(feature.properties.color ?? '#8fa8c4'),
-  }))
+  const continentChips = data?.continents.features
+    .map((feature, index) => ({
+      id: String(feature.properties.name ?? `continent-${index}`),
+      name: String(feature.properties.name ?? `Continent ${index + 1}`),
+      color: String(feature.properties.color ?? '#8fa8c4'),
+    }))
+    .filter((continent) => !HIDDEN_CONTINENT_NAMES.has(continent.name))
 
   return (
     <aside className="timeline-info">
@@ -61,7 +64,7 @@ export function LandTimelineInfo({ era, onContinentSelect }: LandTimelineInfoPro
       </div>
 
       <p className="timeline-info__note">
-        Green = continental land; blue base = ocean.
+        Green land shows major continents with labels; blue base = ocean.
         Reconstructed from {LAND_ATTRIBUTION.rotations} via {LAND_ATTRIBUTION.source}.
       </p>
     </aside>

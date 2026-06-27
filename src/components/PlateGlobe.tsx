@@ -1,13 +1,11 @@
-import { useMemo } from 'react'
-import { getEraBlend } from '../data/plateTimeline'
+import { useEffect, useMemo, useState } from 'react'
 import { useGplatesEraData } from '../hooks/useGplatesEraData'
-import { interpolatePlateCollection } from '../utils/interpolateGplates'
+import { useRigidPlateMotion } from '../hooks/useRigidPlateMotion'
+import { coloredPatchMaterialProps } from '../utils/globePatches'
 import { PLATE_GLOBE_ROTATION } from '../utils/plateFocus'
-import {
-  buildColoredPatchMeshes,
-  coloredPatchMaterialProps,
-} from '../utils/globePatches'
-import { GLOBE_OCEAN_COLOR, GLOBE_OCEAN_RADIUS } from '../constants/globe'
+import { getCachedPlateRotations, loadPlateRotations } from '../utils/plateRotations'
+import { applyCatalogNames, buildRigidPlateGroups } from '../utils/rigidPlateGroups'
+import { GLOBE_OCEAN_COLOR, GLOBE_OCEAN_RADIUS, GLOBE_PATCH_RADIUS } from '../constants/globe'
 
 interface PlateGlobeProps {
   ageMa: number
@@ -17,22 +15,38 @@ interface PlateGlobeProps {
 const DEFAULT_PLATE_COLOR = '#8fa8c4'
 
 export function PlateGlobe({ ageMa, highlightedPlateName }: PlateGlobeProps) {
-  const { from, to, t } = getEraBlend(ageMa)
-  const fromData = useGplatesEraData(from.id)
-  const toData = useGplatesEraData(to.id)
+  const presentData = useGplatesEraData('present')
+  const [rotationsReady, setRotationsReady] = useState(() => Boolean(getCachedPlateRotations()))
 
-  const morphedPlates = useMemo(() => {
-    if (!fromData.data || !toData.data) return null
-    const blendT = from.id === to.id ? 0 : t
-    return interpolatePlateCollection(fromData.data.plates, toData.data.plates, blendT)
-  }, [fromData.data, toData.data, from.id, to.id, t])
+  useEffect(() => {
+    let cancelled = false
+    loadPlateRotations()
+      .then(() => {
+        if (!cancelled) setRotationsReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setRotationsReady(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const plateMeshes = useMemo(
-    () => (morphedPlates ? buildColoredPatchMeshes(morphedPlates, DEFAULT_PLATE_COLOR) : []),
-    [morphedPlates],
-  )
+  const plateLayers = useMemo(() => {
+    if (!presentData.data || !rotationsReady) return []
+    const layers = buildRigidPlateGroups(
+      presentData.data.plates,
+      'reconstructionId',
+      DEFAULT_PLATE_COLOR,
+      GLOBE_PATCH_RADIUS,
+    )
+    const catalog = getCachedPlateRotations()?.plates ?? []
+    return applyCatalogNames(layers, catalog)
+  }, [presentData.data, rotationsReady])
 
-  if (fromData.error || toData.error) {
+  useRigidPlateMotion(plateLayers, ageMa)
+
+  if (presentData.error) {
     return null
   }
 
@@ -43,10 +57,15 @@ export function PlateGlobe({ ageMa, highlightedPlateName }: PlateGlobeProps) {
         <meshStandardMaterial color={GLOBE_OCEAN_COLOR} roughness={0.85} metalness={0.02} />
       </mesh>
 
-      {plateMeshes.map((plate) => {
-        const { material, renderOrder } = coloredPatchMaterialProps(plate, highlightedPlateName)
+      {plateLayers.map((plate) => {
+        const patch = {
+          name: plate.majorPlateName,
+          color: plate.color,
+          opacity: 1,
+        }
+        const { material, renderOrder } = coloredPatchMaterialProps(patch, highlightedPlateName)
         return (
-          <mesh key={plate.id} geometry={plate.geometry} renderOrder={renderOrder}>
+          <mesh key={plate.groupKey} geometry={plate.geometry} renderOrder={renderOrder}>
             <meshBasicMaterial {...material} />
           </mesh>
         )

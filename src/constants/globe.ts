@@ -12,4 +12,7 @@ export const GLOBE_OCEAN_COLOR = '#1e5f8f'
 /** Neutral fill for the full continental land layer under colored continents. */
 export const GLOBE_LAND_COLOR = '#5a7350'
 
+/** Continent name labels — floated above the land surface. */
+export const GLOBE_LAND_LABEL_RADIUS = 1.038
+
 export const GLOBE_PATCH_OPACITY_CUTOFF = 0.03

@@ -3,6 +3,7 @@
   "source": "GPlates 2.5 GeoData (EarthByte, CC BY 3.0)",
   "landModel": "Cao et al. (2017) paleogeography at era keyframes; continental polygons for motion",
   "maxAgeMa": 410,
+  "plateRotations": "plate-rotations.json",
   "eras": [
     {
       "id": "devonian",

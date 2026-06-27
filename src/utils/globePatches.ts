@@ -1,6 +1,6 @@
 import { DoubleSide } from 'three'
-import { polygonToMergedGeometry } from './geojsonToSphere'
-import type { GeoJsonFeatureCollection } from './geojsonToSphere'
+import { featureCollectionToMergedGeometry } from './geojsonToSphere'
+import type { GeoJsonFeature, GeoJsonFeatureCollection } from './geojsonToSphere'
 import {
   GLOBE_PATCH_OPACITY_CUTOFF,
   GLOBE_PATCH_RADIUS,
@@ -11,7 +11,11 @@ export interface ColoredPatchMesh {
   name: string
   color: string
   opacity: number
-  geometry: NonNullable<ReturnType<typeof polygonToMergedGeometry>>
+  geometry: NonNullable<ReturnType<typeof featureCollectionToMergedGeometry>>
+}
+
+function plateNameForFeature(feature: GeoJsonFeature, index: number): string {
+  return String(feature.properties.name ?? feature.properties.plateId ?? `patch-${index}`)
 }
 
 export function buildColoredPatchMeshes(
@@ -19,16 +23,35 @@ export function buildColoredPatchMeshes(
   defaultColor: string,
   radius = GLOBE_PATCH_RADIUS,
 ): ColoredPatchMesh[] {
-  return collection.features.flatMap((feature, index) => {
-    const name = String(feature.properties.name ?? `patch-${index}`)
-    const opacity = Number(feature.properties.opacity ?? 1)
-    if (opacity < GLOBE_PATCH_OPACITY_CUTOFF) return []
+  const groups = new Map<
+    string,
+    { features: GeoJsonFeature[]; color: string; opacity: number }
+  >()
 
-    const geometry = polygonToMergedGeometry(feature.geometry, radius)
-    if (!geometry) return []
+  collection.features.forEach((feature, index) => {
+    const name = plateNameForFeature(feature, index)
+    const opacity = Number(feature.properties.opacity ?? 1)
+    if (opacity < GLOBE_PATCH_OPACITY_CUTOFF) return
 
     const color = String(feature.properties.color ?? defaultColor)
-    return [{ id: name, name, color, opacity, geometry }]
+    const existing = groups.get(name)
+    if (existing) {
+      existing.features.push(feature)
+      existing.opacity = Math.max(existing.opacity, opacity)
+    } else {
+      groups.set(name, { features: [feature], color, opacity })
+    }
+  })
+
+  return Array.from(groups.entries()).flatMap(([name, group]) => {
+    const geometry = featureCollectionToMergedGeometry(
+      { type: 'FeatureCollection', features: group.features },
+      radius,
+      GLOBE_PATCH_OPACITY_CUTOFF,
+    )
+    if (!geometry) return []
+
+    return [{ id: name, name, color: group.color, opacity: group.opacity, geometry }]
   })
 }
 

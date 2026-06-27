@@ -49,7 +49,7 @@ function vector3ToLonLat(v: Vector3): [number, number] {
   return [lon, lat]
 }
 
-/** Lerp two rings on the sphere surface after resampling to a common count. */
+/** Lerp two rings on the sphere after resampling and aligning start vertices. */
 export function lerpRingOnSphere(
   fromRing: LonLatRing,
   toRing: LonLatRing,
@@ -58,9 +58,29 @@ export function lerpRingOnSphere(
 ): LonLatRing {
   const from = resampleRing(fromRing, pointCount)
   const to = resampleRing(toRing, pointCount)
-  const closedFrom = from[0][0] === from[from.length - 1][0] ? from.slice(0, -1) : from
-  const closedTo = to[0][0] === to[to.length - 1][0] ? to.slice(0, -1) : to
+  const closedFrom =
+    from[0][0] === from[from.length - 1][0] ? from.slice(0, -1) : from.slice()
+  let closedTo = to[0][0] === to[to.length - 1][0] ? to.slice(0, -1) : to.slice()
   const count = Math.min(closedFrom.length, closedTo.length)
+  if (count === 0) return fromRing
+
+  if (closedTo.length > 0) {
+    const fromStart = latLonToVector3(closedFrom[0][1], closedFrom[0][0])
+    let bestOffset = 0
+    let bestAngle = Number.POSITIVE_INFINITY
+    for (let offset = 0; offset < closedTo.length; offset++) {
+      const angle = fromStart.angleTo(
+        latLonToVector3(closedTo[offset][1], closedTo[offset][0]),
+      )
+      if (angle < bestAngle) {
+        bestAngle = angle
+        bestOffset = offset
+      }
+    }
+    if (bestOffset > 0) {
+      closedTo = [...closedTo.slice(bestOffset), ...closedTo.slice(0, bestOffset)]
+    }
+  }
 
   const result: LonLatRing = []
   for (let i = 0; i < count; i++) {
@@ -98,8 +118,63 @@ export function extractOuterRings(
     .filter((ring): ring is LonLatRing => Boolean(ring && ring.length >= 3))
 }
 
-function sortRingsByArea(rings: LonLatRing[]): LonLatRing[] {
-  return [...rings].sort((a, b) => ringArea(b) - ringArea(a))
+function ringCentroid(ring: LonLatRing): Vector3 {
+  const open =
+    ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] ? ring.slice(0, -1) : ring
+  const sum = new Vector3()
+  for (const [lon, lat] of open) {
+    sum.add(latLonToVector3(lat, lon))
+  }
+  if (sum.lengthSq() < 1e-12) return new Vector3(0, 0, 1)
+  return sum.normalize()
+}
+
+function pairRingsByProximity(
+  fromRings: LonLatRing[],
+  toRings: LonLatRing[],
+): Array<{ from: LonLatRing; to: LonLatRing }> {
+  const usedTo = new Set<number>()
+  const pairs: Array<{ from: LonLatRing; to: LonLatRing }> = []
+
+  for (const fromRing of fromRings) {
+    const fromCenter = ringCentroid(fromRing)
+    let bestIndex = -1
+    let bestAngle = Number.POSITIVE_INFINITY
+
+    for (let index = 0; index < toRings.length; index++) {
+      if (usedTo.has(index)) continue
+      const angle = fromCenter.angleTo(ringCentroid(toRings[index]))
+      if (angle < bestAngle) {
+        bestAngle = angle
+        bestIndex = index
+      }
+    }
+
+    if (bestIndex >= 0) {
+      usedTo.add(bestIndex)
+      pairs.push({ from: fromRing, to: toRings[bestIndex] })
+    }
+  }
+
+  for (let index = 0; index < toRings.length; index++) {
+    if (usedTo.has(index)) continue
+    const toRing = toRings[index]
+    const toCenter = ringCentroid(toRing)
+    let bestFrom = fromRings[fromRings.length - 1] ?? toRing
+    let bestAngle = Number.POSITIVE_INFINITY
+
+    for (const fromRing of fromRings) {
+      const angle = toCenter.angleTo(ringCentroid(fromRing))
+      if (angle < bestAngle) {
+        bestAngle = angle
+        bestFrom = fromRing
+      }
+    }
+
+    pairs.push({ from: bestFrom, to: toRing })
+  }
+
+  return pairs
 }
 
 export function morphPolygonGeometry(
@@ -108,16 +183,13 @@ export function morphPolygonGeometry(
   t: number,
   pointCount = 32,
 ): GeoJsonPolygon | GeoJsonMultiPolygon {
-  const fromRings = sortRingsByArea(extractOuterRings(fromGeometry))
-  const toRings = sortRingsByArea(extractOuterRings(toGeometry))
-  const pairCount = Math.max(fromRings.length, toRings.length)
+  const fromRings = extractOuterRings(fromGeometry)
+  const toRings = extractOuterRings(toGeometry)
+  const pairs = pairRingsByProximity(fromRings, toRings)
 
   const morphedRings: LonLatRing[] = []
-  for (let i = 0; i < pairCount; i++) {
-    const fromRing = fromRings[i] ?? fromRings[fromRings.length - 1] ?? toRings[i]
-    const toRing = toRings[i] ?? toRings[toRings.length - 1] ?? fromRings[i]
-    if (!fromRing || !toRing) continue
-    morphedRings.push(lerpRingOnSphere(fromRing, toRing, t, pointCount))
+  for (const { from, to } of pairs) {
+    morphedRings.push(lerpRingOnSphere(from, to, t, pointCount))
   }
 
   if (morphedRings.length === 0) {

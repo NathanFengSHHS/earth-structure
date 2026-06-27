@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { GeoJsonFeatureCollection } from '../utils/geojsonToSphere'
+import { loadPlateRotations } from '../utils/plateRotations'
 
 export interface GplatesEraData {
   coastlines: GeoJsonFeatureCollection
@@ -65,7 +66,10 @@ async function loadEraData(eraId: string): Promise<GplatesEraData> {
 export function preloadAllGplatesEras(): Promise<void> {
   if (!preloadPromise) {
     preloadPromise = loadManifest().then((manifest) =>
-      Promise.all(manifest.eras.map((era) => loadEraData(era.id))).then(() => undefined),
+      Promise.all([
+        ...manifest.eras.map((era) => loadEraData(era.id)),
+        loadPlateRotations(),
+      ]).then(() => undefined),
     )
   }
   return preloadPromise

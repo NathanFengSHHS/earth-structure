@@ -12,6 +12,7 @@ Outputs to public/data/gplates/{eraId}-coastlines.json, {eraId}-plates.json, and
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from collections import defaultdict
@@ -304,13 +305,16 @@ def export_continental_land(
         geom = geometry_to_geojson(item.get_reconstructed_geometry(), LAND_SIMPLIFY_MAX_POINTS)
         if not geom:
             continue
-        feature_id = str(item.get_feature().get_feature_id())
+        source_feature = item.get_feature()
+        feature_id = str(source_feature.get_feature_id())
+        plate_id = source_feature.get_reconstruction_plate_id()
         features.append(
             {
                 "type": "Feature",
                 "geometry": geom,
                 "properties": {
                     "featureId": feature_id or f"continental-{index}",
+                    "plateId": str(plate_id),
                     "source": "continental",
                 },
             }
@@ -360,13 +364,16 @@ def export_land_paleogeography(
         geom = geometry_to_geojson(item.get_reconstructed_geometry(), LAND_SIMPLIFY_MAX_POINTS)
         if not geom:
             continue
-        feature_id = str(item.get_feature().get_feature_id())
+        source_feature = item.get_feature()
+        feature_id = str(source_feature.get_feature_id())
+        plate_id = source_feature.get_reconstruction_plate_id()
         features.append(
             {
                 "type": "Feature",
                 "geometry": geom,
                 "properties": {
                     "featureId": feature_id or f"continental-{index}",
+                    "plateId": str(plate_id),
                     "source": "continental",
                 },
             }
@@ -418,6 +425,110 @@ def export_continents(
     return {"type": "FeatureCollection", "features": features}
 
 
+def select_major_plate_names(
+    static_polygons: pygplates.FeatureCollection,
+    min_area: float = 8e12,
+    max_plates: int = 24,
+) -> set[str]:
+    areas: dict[str, float] = defaultdict(float)
+    for feature in static_polygons:
+        name = (feature.get_name() or "").strip()
+        if not name or name == "0":
+            continue
+        if not feature.get_geometry():
+            continue
+        areas[name] += feature.get_geometry().get_area()
+
+    ranked = sorted(areas.items(), key=lambda x: x[1], reverse=True)
+    selected = {name for name, area in ranked if area >= min_area}
+    if len(selected) < 6:
+        selected = {name for name, _ in ranked[:max_plates]}
+    else:
+        selected = set(list(selected)[:max_plates])
+    return selected
+
+
+def build_plate_catalog(
+    static_polygons: pygplates.FeatureCollection,
+    continental_polygons: pygplates.FeatureCollection,
+    major_plate_names: set[str],
+) -> dict[int, dict]:
+    catalog: dict[int, dict] = {}
+
+    for feature in static_polygons:
+        name = (feature.get_name() or "").strip()
+        if not name or name == "0":
+            continue
+        plate_id = feature.get_reconstruction_plate_id()
+        if name in major_plate_names and plate_id not in catalog:
+            catalog[plate_id] = {"name": name, "color": color_for_plate(name)}
+
+    for feature in continental_polygons:
+        plate_id = feature.get_reconstruction_plate_id()
+        if plate_id in catalog:
+            continue
+        region_name = (feature.get_name() or "").strip()
+        catalog[plate_id] = {
+            "name": region_name or f"Plate {plate_id}",
+            "color": color_for_continent(classify_continent(region_name)),
+        }
+
+    return catalog
+
+
+def finite_rotation_to_quaternion_xyzw(finite_rotation: pygplates.FiniteRotation) -> dict:
+    """Convert GPlates finite rotation to Three.js quaternion (x, y, z, w)."""
+    pole_lat, pole_lon, angle_deg = finite_rotation.get_lat_lon_euler_pole_and_angle_degrees()
+    lat_rad = math.radians(pole_lat)
+    lon_rad = math.radians(pole_lon)
+    axis = (
+        math.cos(lat_rad) * math.cos(lon_rad),
+        math.sin(lat_rad),
+        -math.cos(lat_rad) * math.sin(lon_rad),
+    )
+    length = math.sqrt(axis[0] ** 2 + axis[1] ** 2 + axis[2] ** 2)
+    if length < 1e-12:
+        return {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
+    axis = (axis[0] / length, axis[1] / length, axis[2] / length)
+    half = math.radians(angle_deg) * 0.5
+    sin_half = math.sin(half)
+    return {
+        "x": axis[0] * sin_half,
+        "y": axis[1] * sin_half,
+        "z": axis[2] * sin_half,
+        "w": math.cos(half),
+    }
+
+
+def export_plate_rotations(
+    rotation_model: pygplates.RotationModel,
+    plate_catalog: dict[int, dict],
+    eras: list[tuple[str, float]],
+) -> dict:
+    """Absolute rotations from present-day (0 Ma) to each era, as quaternions."""
+    present_rotations = {
+        plate_id: rotation_model.get_rotation(0, plate_id) for plate_id in plate_catalog
+    }
+    keyframes = []
+    for _, age_ma in eras:
+        rotations: dict[str, dict] = {}
+        for plate_id in plate_catalog:
+            finite_rotation = rotation_model.get_rotation(age_ma, plate_id)
+            relative = finite_rotation * present_rotations[plate_id].get_inverse()
+            rotations[str(plate_id)] = finite_rotation_to_quaternion_xyzw(relative)
+        keyframes.append({"ageMa": age_ma, "rotations": rotations})
+
+    plates = [
+        {
+            "id": plate_id,
+            "name": meta["name"],
+            "color": meta.get("color"),
+        }
+        for plate_id, meta in sorted(plate_catalog.items(), key=lambda item: item[1]["name"])
+    ]
+    return {"plates": plates, "keyframes": keyframes}
+
+
 def export_plates(
     static_polygons: pygplates.FeatureCollection,
     rotation_model: pygplates.RotationModel,
@@ -425,21 +536,18 @@ def export_plates(
     min_area: float = 8e12,
     max_plates: int = 24,
 ) -> dict:
+    """Export one GeoJSON feature per static plate polygon (GPlates figure), not merged by plate."""
     reconstructed = reconstruct_collection(static_polygons, rotation_model, age_ma)
-    grouped: dict[str, list] = defaultdict(list)
     areas: dict[str, float] = defaultdict(float)
 
     for item in reconstructed:
-        name = (item.get_feature().get_name() or "").strip()
-        if not name or name == "0":
+        plate_name = (item.get_feature().get_name() or "").strip()
+        if not plate_name or plate_name == "0":
             continue
         geom = item.get_reconstructed_geometry()
         if not isinstance(geom, pygplates.PolygonOnSphere):
             continue
-        ring = polygon_to_coords(geom)
-        area = geom.get_area()
-        grouped[name].append(ring)
-        areas[name] += area
+        areas[plate_name] += geom.get_area()
 
     ranked = sorted(areas.items(), key=lambda x: x[1], reverse=True)
     selected = {name for name, area in ranked if area >= min_area}
@@ -449,17 +557,32 @@ def export_plates(
         selected = set(list(selected)[:max_plates])
 
     features = []
-    for name in sorted(selected):
-        rings = grouped[name]
-        if len(rings) == 1:
-            geometry = {"type": "Polygon", "coordinates": [rings[0]]}
-        else:
-            geometry = {"type": "MultiPolygon", "coordinates": [[r] for r in rings]}
+    for index, item in enumerate(reconstructed):
+        plate_name = (item.get_feature().get_name() or "").strip()
+        if not plate_name or plate_name == "0" or plate_name not in selected:
+            continue
+        geom = item.get_reconstructed_geometry()
+        if not isinstance(geom, pygplates.PolygonOnSphere):
+            continue
+
+        source_feature = item.get_feature()
+        feature_id = str(source_feature.get_feature_id())
+        attrs = source_feature.get_shapefile_attributes()
+        if attrs and "FEATURE_ID" in attrs:
+            feature_id = str(attrs["FEATURE_ID"])
+
+        ring = polygon_to_coords(geom)
         features.append(
             {
                 "type": "Feature",
-                "geometry": geometry,
-                "properties": {"name": name, "color": color_for_plate(name)},
+                "geometry": {"type": "Polygon", "coordinates": [ring]},
+                "properties": {
+                    "featureId": feature_id or f"plate-{plate_name}-{index}",
+                    "plateId": plate_name,
+                    "name": plate_name,
+                    "reconstructionPlateId": source_feature.get_reconstruction_plate_id(),
+                    "color": color_for_plate(plate_name),
+                },
             }
         )
 
@@ -486,11 +609,16 @@ def main() -> int:
     continental_polygons = pygplates.FeatureCollection(CONTINENTAL_FILE)
     paleo_layers = [pygplates.FeatureCollection(path) for path in PALEO_LAND_FILES]
 
+    major_plate_names = select_major_plate_names(static_polygons)
+    plate_catalog = build_plate_catalog(static_polygons, continental_polygons, major_plate_names)
+    plate_rotations = export_plate_rotations(rotation_model, plate_catalog, ERAS)
+
     manifest = {
         "model": "Zahirovic et al. (2022)",
         "source": "GPlates 2.5 GeoData (EarthByte, CC BY 3.0)",
         "landModel": "Cao et al. (2017) paleogeography at era keyframes; continental polygons for motion",
         "maxAgeMa": ERAS[0][1],
+        "plateRotations": "plate-rotations.json",
         "eras": [],
     }
 
@@ -556,6 +684,12 @@ def main() -> int:
                 "plates": f"{era_id}-plates.json",
             }
         )
+
+    rotations_path = os.path.join(OUT_DIR, "plate-rotations.json")
+    with open(rotations_path, "w", encoding="utf-8") as f:
+        json.dump(plate_rotations, f, separators=(",", ":"))
+    rotations_size = os.path.getsize(rotations_path) / 1024
+    print(f"  plate rotations: {len(plate_catalog)} plates ({rotations_size:.0f} KB)")
 
     manifest_path = os.path.join(OUT_DIR, "manifest.json")
     with open(manifest_path, "w", encoding="utf-8") as f:

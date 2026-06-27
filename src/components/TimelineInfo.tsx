@@ -1,6 +1,9 @@
 import type { PlateEra } from '../data/plateTimeline'
 import { GPLATES_ATTRIBUTION, formatAgeLabel } from '../data/plateTimeline'
 import { useGplatesEraData } from '../hooks/useGplatesEraData'
+import { listMajorPlates } from '../utils/rigidPlateGroups'
+
+const DEFAULT_PLATE_COLOR = '#8fa8c4'
 
 interface TimelineInfoProps {
   era: PlateEra
@@ -8,13 +11,11 @@ interface TimelineInfoProps {
 }
 
 export function TimelineInfo({ era, onPlateSelect }: TimelineInfoProps) {
-  const { data, loading } = useGplatesEraData(era.id)
+  const { data: presentData, loading } = useGplatesEraData('present')
 
-  const plateChips = data?.plates.features.map((feature, index) => ({
-    id: String(feature.properties.name ?? `plate-${index}`),
-    name: String(feature.properties.name ?? `Plate ${index + 1}`),
-    color: String(feature.properties.color ?? '#8fa8c4'),
-  }))
+  const plateChips = presentData
+    ? listMajorPlates(presentData.plates, DEFAULT_PLATE_COLOR)
+    : undefined
 
   return (
     <aside className="timeline-info">

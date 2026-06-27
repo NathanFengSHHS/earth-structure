@@ -1,8 +1,9 @@
 import { Euler, Vector3 } from 'three'
 import { getEraBlend } from '../data/plateTimeline'
 import { getCachedEraData } from '../hooks/useGplatesEraData'
-import { interpolatePlateCollection } from './interpolateGplates'
 import type { GeoJsonFeature, GeoJsonMultiPolygon, GeoJsonPolygon } from './geojsonToSphere'
+import { getPlateQuaternion } from './plateRotations'
+import { reconstructionPlateIdForFeature } from './rigidPlateGroups'
 import { latLonToVector3 } from './spherePolygon'
 
 export const PLATE_GLOBE_ROTATION: [number, number, number] = [0.15, -0.35, 0]
@@ -42,48 +43,45 @@ export function directionToWorld(localDirection: Vector3): Vector3 {
   return localDirection.clone().applyEuler(globeEuler)
 }
 
-export function getMorphedPlateFeature(plateName: string, ageMa: number): GeoJsonFeature | null {
-  const { from, to, t } = getEraBlend(ageMa)
-  const fromData = getCachedEraData(from.id)
-  const toData = getCachedEraData(to.id)
-  if (!fromData || !toData) return null
-
-  const blendT = from.id === to.id ? 0 : t
-  const morphed = interpolatePlateCollection(fromData.plates, toData.plates, blendT)
-  return (
-    morphed.features.find((feature) => String(feature.properties.name ?? '') === plateName) ??
-    null
-  )
+function plateNameMatches(feature: GeoJsonFeature, plateName: string): boolean {
+  const name = String(feature.properties.name ?? feature.properties.plateId ?? '')
+  return name === plateName
 }
 
 export function getPlateWorldDirection(plateName: string, ageMa: number): Vector3 | null {
-  const feature = getMorphedPlateFeature(plateName, ageMa)
-  if (!feature) return null
-  return directionToWorld(plateFeatureToDirection(feature))
-}
+  const present = getCachedEraData('present')
+  if (!present) return null
 
-export function getMorphedContinentFeature(
-  continentName: string,
-  ageMa: number,
-): GeoJsonFeature | null {
-  const { from, to, t } = getEraBlend(ageMa)
-  const fromData = getCachedEraData(from.id)
-  const toData = getCachedEraData(to.id)
-  if (!fromData || !toData) return null
-
-  const blendT = from.id === to.id ? 0 : t
-  const morphed = interpolatePlateCollection(fromData.continents, toData.continents, blendT)
-  return (
-    morphed.features.find((feature) => String(feature.properties.name ?? '') === continentName) ??
-    null
+  const fragments = present.plates.features.filter((feature) =>
+    plateNameMatches(feature, plateName),
   )
+  if (fragments.length === 0) return null
+
+  const sum = new Vector3()
+  for (const feature of fragments) {
+    const direction = plateFeatureToDirection(feature)
+    const plateId = reconstructionPlateIdForFeature(feature)
+    direction.applyQuaternion(getPlateQuaternion(plateId, ageMa))
+    sum.add(direction)
+  }
+
+  if (sum.lengthSq() < 1e-12) return new Vector3(0, 0, 1)
+  return directionToWorld(sum.normalize())
 }
 
 export function getContinentWorldDirection(
   continentName: string,
   ageMa: number,
 ): Vector3 | null {
-  const feature = getMorphedContinentFeature(continentName, ageMa)
+  const { from, to, t } = getEraBlend(ageMa)
+  const eraId = t < 0.5 ? from.id : to.id
+  const data = getCachedEraData(eraId)
+  if (!data) return null
+
+  const feature =
+    data.continents.features.find(
+      (entry) => String(entry.properties.name ?? '') === continentName,
+    ) ?? null
   if (!feature) return null
   return directionToWorld(plateFeatureToDirection(feature))
 }

@@ -6,7 +6,7 @@ Interactive 3D cross-section of Earth's interior — built with React, TypeScrip
 
 **https://NathanFengSHHS.github.io/earth-structure/**
 
-(Available after you run the deploy script below and GitHub Actions finishes.)
+Open that link in any modern browser — no install required. The site updates automatically when `main` is pushed (GitHub Actions → GitHub Pages).
 
 ## Features
 
@@ -17,11 +17,16 @@ Interactive 3D cross-section of Earth's interior — built with React, TypeScrip
 - Keyboard shortcuts: `1`–`5` select layers
 
 ### Plate Movement Timeline
-- Full 3D globe with **GPlates**-reconstructed coastlines and major plate polygons (Zahirovic et al., 2022)
+- Full 3D globe with **GPlates**-reconstructed major plate polygons (Zahirovic et al., 2022)
 - Geological time slider (410 Ma → today) with era quick-jump chips
 - Era info panel with key tectonic events
 
-Use the header button to switch between **Internal Structure** and **Plate Movement**.
+### Land Through Time
+- Continental landmasses with labels on a morphing globe
+- Same geological timeline controls as the plate view
+- Sidebar continent chips to focus the camera
+
+Use the header tabs to switch between all three views.
 
 ### Regenerating GPlates data (optional)
 
@@ -50,24 +55,28 @@ npm run build
 npm run preview
 ```
 
-The production build outputs to `dist/`. The Vite config uses `base: './'` so the app can be deployed to GitHub Pages or any static host.
+The production build outputs to `dist/`. Vite uses `base: '/earth-structure/'` on build so assets work on GitHub Pages.
 
 ## Deploy to GitHub Pages
 
-The repo includes [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — it builds and publishes on every push to `main`.
+Every push to **`main`** triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds and publishes the site.
 
-**One-time setup** (requires [GitHub CLI](https://cli.github.com/)):
+**First-time setup** (requires [GitHub CLI](https://cli.github.com/)):
 
 ```bash
 gh auth login
 ./scripts/deploy-github-pages.sh
 ```
 
-That script will:
+That script creates the public repo (if needed), pushes `main`, and enables GitHub Pages with GitHub Actions as the source.
 
-1. Create the public repo `earth-structure` on your GitHub account (if needed)
-2. Push `main`
-3. Enable GitHub Pages with **GitHub Actions** as the source
+**After setup**, deploy updates with:
+
+```bash
+git checkout main
+git merge your-feature-branch   # if needed
+git push origin main
+```
 
 Your site will be at `https://<your-username>.github.io/earth-structure/`.
 

@@ -4,12 +4,54 @@ import type {
   GeoJsonMultiPolygon,
   GeoJsonPolygon,
 } from './geojsonToSphere'
-import { morphPolygonGeometry } from './sphereMorph'
+import { extractOuterRings, morphPolygonGeometry } from './sphereMorph'
 
 function isPolygonGeometry(
   geometry: GeoJsonPolygon | GeoJsonMultiPolygon,
 ): geometry is GeoJsonPolygon | GeoJsonMultiPolygon {
   return geometry.type === 'Polygon' || geometry.type === 'MultiPolygon'
+}
+
+function plateIdForFeature(feature: GeoJsonFeature): string {
+  return String(feature.properties.plateId ?? feature.properties.name ?? '')
+}
+
+function groupFeaturesByPlate(collection: GeoJsonFeatureCollection): Map<string, GeoJsonFeature[]> {
+  const groups = new Map<string, GeoJsonFeature[]>()
+  for (const feature of collection.features) {
+    const plateId = plateIdForFeature(feature)
+    if (!plateId || !isPolygonGeometry(feature.geometry)) continue
+    const existing = groups.get(plateId)
+    if (existing) {
+      existing.push(feature)
+    } else {
+      groups.set(plateId, [feature])
+    }
+  }
+  return groups
+}
+
+function mergePlateFragments(features: GeoJsonFeature[]): GeoJsonFeature | null {
+  if (features.length === 0) return null
+
+  const rings = features.flatMap((feature) => extractOuterRings(feature.geometry))
+  if (rings.length === 0) return null
+
+  const geometry: GeoJsonPolygon | GeoJsonMultiPolygon =
+    rings.length === 1
+      ? { type: 'Polygon', coordinates: [rings[0]] }
+      : { type: 'MultiPolygon', coordinates: rings.map((ring) => [ring]) }
+
+  const template = features[0]
+  return {
+    type: 'Feature',
+    geometry,
+    properties: {
+      ...template.properties,
+      name: plateIdForFeature(template),
+      plateId: plateIdForFeature(template),
+    },
+  }
 }
 
 function morphFeaturePair(
@@ -43,24 +85,21 @@ export function interpolatePlateCollection(
   to: GeoJsonFeatureCollection,
   t: number,
 ): GeoJsonFeatureCollection {
-  const fromMap = new Map(
-    from.features.map((f) => [String(f.properties.name ?? ''), f]),
-  )
-  const toMap = new Map(to.features.map((f) => [String(f.properties.name ?? ''), f]))
-  const names = new Set([...fromMap.keys(), ...toMap.keys()])
+  const fromGroups = groupFeaturesByPlate(from)
+  const toGroups = groupFeaturesByPlate(to)
+  const plateIds = new Set([...fromGroups.keys(), ...toGroups.keys()])
 
   const features: GeoJsonFeature[] = []
-  for (const name of names) {
-    if (!name) continue
-    const fromFeature = fromMap.get(name)
-    const toFeature = toMap.get(name)
+  for (const plateId of plateIds) {
+    const fromMerged = mergePlateFragments(fromGroups.get(plateId) ?? [])
+    const toMerged = mergePlateFragments(toGroups.get(plateId) ?? [])
 
-    if (fromFeature && toFeature) {
-      features.push(morphFeaturePair(fromFeature, toFeature, t, 1))
-    } else if (fromFeature) {
-      features.push(singleFeature(fromFeature, 1 - t))
-    } else if (toFeature) {
-      features.push(singleFeature(toFeature, t))
+    if (fromMerged && toMerged) {
+      features.push(morphFeaturePair(fromMerged, toMerged, t, 1))
+    } else if (fromMerged) {
+      features.push(singleFeature(fromMerged, 1 - t))
+    } else if (toMerged) {
+      features.push(singleFeature(toMerged, t))
     }
   }
 
